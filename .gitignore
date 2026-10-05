@@ -1,0 +1,12 @@
+.venv/
+models/
+
+__pycache__/
+*.pyc
+
+# File tạm của editor / hệ điều hành
+.vscode/
+.idea/
+Thumbs.db
+
+Luong_hoat_dong_Laya_Snake.docx
