@@ -1,5 +1,6 @@
 # Laya Snake Demo
 
+Demo mô hình **Laya** chơi game Snake, có giao diện đồ họa (`tkinter`), chạy được bằng **CPU**.
 
 ## Cài đặt (Windows)
 
