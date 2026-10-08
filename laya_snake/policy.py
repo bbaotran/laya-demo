@@ -1,46 +1,19 @@
 """Dự đoán thật từ mô hình Laya, kèm "khiên an toàn" (tùy chọn).
 
 Dựa trên laya_mlx/snake/policy.py (mizorewww/laya-mlx, Apache-2.0).
-Mô hình chạy bằng PyTorch (CPU hoặc CUDA) qua `laya.load(...)`. Cách hỏi mô hình (prompt)
-là bản "compact" của mizorewww/laya-mlx.
+Mô hình chạy bằng PyTorch (CPU hoặc CUDA). Có hai cách nạp weights (tham số `engine`):
+  - "laya":   dùng gói `laya` từ pip (`laya.load(...)`).
+  - "native": tự nạp weights vào kiến trúc trong common.py bằng loader.py, không cần gói `laya`.
+Cách hỏi mô hình (prompt) là bản "compact" của upstream.
 """
 
 import math
-import os
 import time
 from dataclasses import asdict, dataclass
-from pathlib import Path
 
 from .game import DIRECTIONS
-
-HF_REPO = "convaiinnovations/laya"
-HF_REVISION = "1c5edc17a7acd8701df6fc341c0d179f1c62c982"
-DEFAULT_DIR = Path("models") / "laya"
-DEFAULT_SUBFOLDER = "multilingual"
-CHECKPOINT_FILES = ("rl_agent_config.json", "model.safetensors", "tokenizer/*", "encoder/*")
-
-
-def download_checkpoint(directory=DEFAULT_DIR, subfolder=DEFAULT_SUBFOLDER):
-    """Tải mô hình về một thư mục thường (không dùng symlink, chạy được trên Windows)."""
-    from huggingface_hub import snapshot_download
-
-    prefix = f"{subfolder}/" if subfolder else ""
-    return snapshot_download(
-        HF_REPO,
-        revision=HF_REVISION,
-        local_dir=str(directory),
-        allow_patterns=[prefix + name for name in CHECKPOINT_FILES],
-    )
-
-
-def local_checkpoint(value=None, subfolder=DEFAULT_SUBFOLDER):
-    """Tìm thư mục mô hình trên máy. Khi chơi game không dùng mạng."""
-    os.environ["HF_HUB_OFFLINE"] = "1"
-    os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-    path = Path(value).expanduser() if value else DEFAULT_DIR
-    if not (path / (subfolder or "") / "model.safetensors").is_file():
-        raise FileNotFoundError(f"Không thấy mô hình trong: {path / (subfolder or '')}")
-    return path
+# Việc tải weights và tìm thư mục mô hình nằm trong loader.py; import lại ở đây để gui.py dùng chung.
+from .loader import DEFAULT_DIR, DEFAULT_SUBFOLDER, download_checkpoint, local_checkpoint  # noqa: F401
 
 
 @dataclass
@@ -59,11 +32,19 @@ class Decision:
 
 
 class LayaPolicy:
-    def __init__(self, model=None, *, subfolder=DEFAULT_SUBFOLDER, guarded=True, device=None):
-        import laya
-
+    def __init__(self, model=None, *, subfolder=DEFAULT_SUBFOLDER, guarded=True, device=None, engine="laya"):
         path = local_checkpoint(model, subfolder)
-        self.agent = laya.load(str(path), device=device, subfolder=subfolder or None)
+        if engine == "native":
+            from .loader import load_agent
+
+            self.agent = load_agent(path, subfolder, device)
+        elif engine == "laya":
+            import laya
+
+            self.agent = laya.load(str(path), device=device, subfolder=subfolder or None)
+        else:
+            raise ValueError("engine phải là 'laya' hoặc 'native'")
+        self.engine = engine
         self.guarded = guarded
         dev = self.agent.device
         if dev.type == "cpu":

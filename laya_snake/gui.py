@@ -35,8 +35,8 @@ class App:
         self.paused = False
         self.stop = False
         self.restart_flag = False
-        self.push = None            # hướng, số bước còn lại
-        self.latest = None          # dữ liệu mới nhất để vẽ giao diện
+        self.push = None            # [hướng, số bước còn lại]
+        self.latest = None          # dữ liệu mới nhất để vẽ
         self.message = "Đang tải mô hình...\n(lần đầu có thể mất 10-60 giây, xin chờ)"
         self.flash_text, self.flash_until = "", 0.0
         self.hardware = "CPU"
@@ -106,7 +106,8 @@ class App:
         a = self.args
         try:
             policy = LayaPolicy(
-                a.model, subfolder=a.subfolder, guarded=not a.unassisted, device=a.device
+                a.model, subfolder=a.subfolder, guarded=not a.unassisted, device=a.device,
+                engine=a.engine,
             )
         except FileNotFoundError as error:
             self.message = (
@@ -281,8 +282,10 @@ def main():
     parser.add_argument("--model", help=f"Thư mục chứa mô hình (mặc định: {DEFAULT_DIR})")
     parser.add_argument("--subfolder", default=DEFAULT_SUBFOLDER)
     parser.add_argument("--device", default="cpu", help="cpu (mặc định) hoặc cuda")
-    parser.add_argument("--width", type=int, default=6)
-    parser.add_argument("--height", type=int, default=6)
+    parser.add_argument("--engine", default="laya", choices=("laya", "native"),
+                        help="laya: dùng gói laya (mặc định); native: tự nạp weights bằng loader.py")
+    parser.add_argument("--width", type=int, default=8)
+    parser.add_argument("--height", type=int, default=8)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--initial-length", type=int, default=6)
     parser.add_argument("--fps", type=int, default=4, help="Số quyết định tối đa mỗi giây")

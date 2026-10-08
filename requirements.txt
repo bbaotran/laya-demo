@@ -3,3 +3,6 @@
 torch
 laya
 huggingface_hub
+transformers
+safetensors
+numpy
