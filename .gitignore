@@ -10,3 +10,11 @@ __pycache__/
 Thumbs.db
 
 Luong_hoat_dong_Laya_Snake.docx
+
+test.py
+test1.py
+test2.py
+
+.env
+.env.*
+!.env.example
