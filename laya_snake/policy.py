@@ -1,9 +1,12 @@
 """Dự đoán thật từ mô hình Laya, kèm "khiên an toàn" (tùy chọn).
 
 Dựa trên laya_mlx/snake/policy.py (mizorewww/laya-mlx, Apache-2.0).
-Mô hình chạy bằng PyTorch (CPU hoặc CUDA). Có hai cách nạp weights (tham số `engine`):
-  - "laya":   dùng gói `laya` từ pip (`laya.load(...)`).
-  - "native": tự nạp weights vào kiến trúc trong common.py bằng loader.py, không cần gói `laya`.
+Có nhiều "bộ quyết định" để chọn (tham số `engine`):
+  - "laya":      dùng gói `laya` từ pip (`laya.load(...)`).
+  - "native":    tự nạp weights vào kiến trúc trong common.py bằng loader.py, không cần gói `laya`.
+  - "jev":       Jev của TypeSafe qua OpenRouter (decision_backends.py, key trong .env).
+  - "decision1": Microsoft-Decision-1 qua Azure Foundry (decision_backends.py, key trong .env).
+  - "gemma":     EmbeddingGemma 2 chạy trên máy bằng MediaPipe Decision Maker (decision_backends.py).
 Cách hỏi mô hình (prompt) là bản "compact" của upstream.
 """
 
@@ -33,26 +36,33 @@ class Decision:
 
 class LayaPolicy:
     def __init__(self, model=None, *, subfolder=DEFAULT_SUBFOLDER, guarded=True, device=None, engine="laya"):
-        path = local_checkpoint(model, subfolder)
-        if engine == "native":
-            from .loader import load_agent
+        if engine in ("laya", "native"):
+            path = local_checkpoint(model, subfolder)
+            if engine == "native":
+                from .loader import load_agent
 
-            self.agent = load_agent(path, subfolder, device)
-        elif engine == "laya":
-            import laya
+                self.agent = load_agent(path, subfolder, device)
+            else:
+                import laya
 
-            self.agent = laya.load(str(path), device=device, subfolder=subfolder or None)
+                self.agent = laya.load(str(path), device=device, subfolder=subfolder or None)
+        elif engine in ("jev", "decision1", "gemma"):
+            from .decision_backends import load_backend
+
+            self.agent = load_backend(engine)
         else:
-            raise ValueError("engine phải là 'laya' hoặc 'native'")
+            raise ValueError("engine phải là 'laya', 'native', 'jev', 'decision1' hoặc 'gemma'")
         self.engine = engine
         self.guarded = guarded
-        dev = self.agent.device
-        if dev.type == "cpu":
+        name = getattr(self.agent, "device_name", None)  # model gọi API / chạy riêng tự đặt tên hiển thị
+        if name:
+            self.device_name = name
+        elif self.agent.device.type == "cpu":
             self.device_name = "CPU"
         else:
             import torch
 
-            self.device_name = torch.cuda.get_device_name(dev)
+            self.device_name = torch.cuda.get_device_name(self.agent.device)
 
     def decide(self, game):
         moves = game.moves()

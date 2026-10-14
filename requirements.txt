@@ -6,3 +6,6 @@ huggingface_hub
 transformers
 safetensors
 numpy
+
+# Chỉ cần cho --engine gemma (EmbeddingGemma 2 qua MediaPipe Decision Maker).
+mediapipe

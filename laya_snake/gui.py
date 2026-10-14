@@ -11,6 +11,7 @@ import threading
 import time
 import tkinter as tk
 
+from .decision_backends import BackendError
 from .game import SnakeGame
 from .policy import DEFAULT_DIR, DEFAULT_SUBFOLDER, LayaPolicy, download_checkpoint
 
@@ -114,6 +115,9 @@ class App:
                 f"CHƯA CÓ MÔ HÌNH.\nHãy chạy:  python -m laya_snake --download\n\n{error}"
             )
             return
+        except BackendError as error:
+            self.message = f"Không dùng được bộ quyết định này:\n\n{error}"
+            return
         except Exception as error:  # noqa: BLE001
             self.message = f"Lỗi khi tải mô hình:\n{error!r}"
             return
@@ -171,7 +175,7 @@ class App:
                     game = SnakeGame(a.width, a.height, a.seed + round_no - 1, a.initial_length)
         except Exception as error:  # noqa: BLE001
             self.latest = None
-            self.message = f"Lỗi trong lúc chạy:\n{error!r}"
+            self.message = f"Lỗi trong lúc chạy:\n{error if isinstance(error, BackendError) else repr(error)}"
 
     # ---------- vẽ ----------
     def refresh(self):
@@ -183,7 +187,7 @@ class App:
         if data is None:
             c.create_text(
                 (self.board_w + PANEL_W) // 2, self.height // 2, text=self.message,
-                fill=FG, font=FONT_BIG, justify="center",
+                fill=FG, font=FONT_BIG, justify="center", width=self.board_w + PANEL_W - 60,
             )
         else:
             self.draw_board(data)
@@ -282,10 +286,12 @@ def main():
     parser.add_argument("--model", help=f"Thư mục chứa mô hình (mặc định: {DEFAULT_DIR})")
     parser.add_argument("--subfolder", default=DEFAULT_SUBFOLDER)
     parser.add_argument("--device", default="cpu", help="cpu (mặc định) hoặc cuda")
-    parser.add_argument("--engine", default="laya", choices=("laya", "native"),
-                        help="laya: dùng gói laya (mặc định); native: tự nạp weights bằng loader.py")
-    parser.add_argument("--width", type=int, default=8)
-    parser.add_argument("--height", type=int, default=8)
+    parser.add_argument("--engine", default="laya",
+                        choices=("laya", "native", "jev", "decision1", "gemma"),
+                        help="laya (mặc định) | native: tự nạp weights | jev: OpenRouter | "
+                             "decision1: Azure | gemma: EmbeddingGemma 2")
+    parser.add_argument("--width", type=int, default=20)
+    parser.add_argument("--height", type=int, default=14)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--initial-length", type=int, default=6)
     parser.add_argument("--fps", type=int, default=4, help="Số quyết định tối đa mỗi giây")
